@@ -1,16 +1,76 @@
-# React + Vite
+# face-track
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Real-time face detection and 68-point landmark tracking using TensorFlow.js. Ships with pre-trained model weights — no external downloads needed.
 
-Currently, two official plugins are available:
+## Install
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```bash
+npm install face-track @tensorflow/tfjs
+```
 
-## React Compiler
+`@tensorflow/tfjs` is a peer dependency.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Usage
 
-## Expanding the ESLint configuration
+```js
+import * as tf from '@tensorflow/tfjs'
+import { FaceTracker, calculateFaceOrientation, drawResults } from 'face-track'
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+const tracker = new FaceTracker()
+await tracker.loadModels('/models/')
+
+// Detect faces + landmarks from a video element
+const results = await tracker.detectFacesWithLandmarks(videoElement)
+
+for (const { detection, landmarks } of results) {
+  console.log('Box:', detection.box)        // { x, y, width, height }
+  console.log('Landmarks:', landmarks)       // 68 points with { x, y }
+
+  const orientation = calculateFaceOrientation(landmarks)
+  console.log('Yaw/Pitch/Roll:', orientation) // { yaw, pitch, roll } in degrees
+}
+
+// Draw results on a canvas
+const ctx = canvas.getContext('2d')
+drawResults(ctx, results, canvas.width, canvas.height)
+```
+
+## API
+
+| Export | Description |
+|---|---|
+| `FaceTracker` | High-level class: load models, detect faces + landmarks |
+| `calculateFaceOrientation(landmarks)` | Estimate yaw/pitch/roll from 68 landmarks |
+| `drawResults(ctx, results, w, h)` | Draw bounding boxes + landmarks on canvas |
+| `drawLandmarkPoints(ctx, landmarks)` | Draw landmark dots |
+| `drawLandmarkConnections(ctx, landmarks)` | Draw landmark group connections |
+| `FACE_LANDMARKS` | Named index groups (JAW, LEFT_EYE, NOSE_TIP, etc.) |
+| `TinyFaceDetector` | Low-level face detection network |
+| `FaceLandmark68Net` | Low-level landmark network |
+| `postProcessLandmarks(raw, box, w, h)` | Convert raw network output to pixel coordinates |
+
+## Models
+
+Pre-trained weights are in the `models/` directory. Pass the serving URL to `loadModels()`:
+
+```js
+// Serve models from your public directory
+await tracker.loadModels('/models/')
+
+// Or from a CDN/custom path
+await tracker.loadModels('https://cdn.example.com/face-track-models/')
+```
+
+## Demo
+
+See `examples/react-demo/` for a working React app:
+
+```bash
+cd examples/react-demo
+npm install
+npm run dev
+```
+
+## License
+
+MIT
