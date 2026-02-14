@@ -16,10 +16,24 @@
   ],
   "scripts": {
     "build": "vite build",
+    "prepublishOnly": "npm test && npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint ."
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yogthos/face-track.git"
+  },
+  "keywords": [
+    "face-detection",
+    "face-landmarks",
+    "tensorflow",
+    "tfjs",
+    "computer-vision"
+  ],
+  "author": "yogthos",
+  "license": "MIT",
   "peerDependencies": {
     "@tensorflow/tfjs": "^4.0.0"
   },

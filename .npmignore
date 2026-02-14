@@ -1,0 +1,9 @@
+src/
+examples/
+.github/
+.claude/
+*.test.js
+vitest.config.js
+eslint.config.js
+FACE_TRACKING.md
+debug-screenshot.png
