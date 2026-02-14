@@ -1,6 +1,6 @@
 {
   "name": "face-track",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Real-time face landmark detection and tracking using TensorFlow.js",
   "main": "dist/face-track.js",
