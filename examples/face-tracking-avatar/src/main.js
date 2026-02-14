@@ -45,24 +45,23 @@ resize()
 
 // --- Optimized inference pipeline ---
 //
-// The library's detectLandmarks() does per frame:
-//   fromPixels(full video) → tf.slice → tf.pad → resizeBilinear → mean tensor alloc → forward
+// Strategy: face detection is expensive, so run it infrequently (every 500ms)
+// to get the bounding box. Run only the landmark net every frame on the
+// cached box, using canvas drawImage for crop+pad+resize (replaces 4 tensor ops).
 //
-// We replace fromPixels+slice+pad+resize with a single canvas.drawImage() call
-// (hardware-accelerated crop+pad+resize), then fromPixels on a tiny 112x112 canvas.
-// The mean tensor is cached. This eliminates 4 GPU tensor ops per frame.
+// The mean tensor is cached with tf.keep() so tf.tidy() won't dispose it.
 
 const DETECT_INTERVAL = 500
 const DETECT_INPUT_SIZE = 160
 const LANDMARK_SIZE = 112
 
-// Pre-allocated canvas for face cropping (matches landmark net input)
+// Pre-allocated canvas for face cropping
 const cropCanvas = document.createElement('canvas')
 cropCanvas.width = LANDMARK_SIZE
 cropCanvas.height = LANDMARK_SIZE
 const cropCtx = cropCanvas.getContext('2d', { willReadFrequently: false })
 
-// Cached mean tensor — the library creates a new one every frame
+// Cached mean tensor — tf.keep() prevents tidy from disposing it
 let meanTensor = null
 
 let cachedBox = null
@@ -77,7 +76,7 @@ async function detectBox() {
   cachedBox = faces.length > 0 ? faces[0].box : null
 }
 
-// Fast landmark detection: canvas crop+resize replaces 4 tensor ops
+// Fast landmarks: canvas crop+resize replaces fromPixels+slice+pad+resize
 async function fastLandmarks(box) {
   const x = Math.max(0, Math.floor(box.x))
   const y = Math.max(0, Math.floor(box.y))
@@ -85,7 +84,7 @@ async function fastLandmarks(box) {
   const h = Math.min(Math.floor(box.height), video.videoHeight - y)
   if (w <= 0 || h <= 0) return null
 
-  // Mirror the library's pad-to-square + resize logic, but on canvas
+  // Mirror the library's pad-to-square + resize, but via canvas
   const maxDim = Math.max(w, h)
   const scale = LANDMARK_SIZE / maxDim
   const destW = w * scale
@@ -93,11 +92,11 @@ async function fastLandmarks(box) {
   const destX = (LANDMARK_SIZE - destW) / 2
   const destY = (LANDMARK_SIZE - destH) / 2
 
-  // One hardware-accelerated call: crop from video + pad + resize to 112x112
+  // Hardware-accelerated crop + pad + resize in one call
   cropCtx.clearRect(0, 0, LANDMARK_SIZE, LANDMARK_SIZE)
   cropCtx.drawImage(video, x, y, w, h, destX, destY, destW, destH)
 
-  if (!meanTensor) meanTensor = tf.tensor1d([122.782, 117.001, 104.298])
+  if (!meanTensor) meanTensor = tf.keep(tf.tensor1d([122.782, 117.001, 104.298]))
 
   // fromPixels on 112x112 canvas (37K elements) vs full video (230K)
   const preprocessed = tf.tidy(() => {
@@ -120,6 +119,7 @@ async function runInference() {
   try {
     const now = performance.now()
 
+    // Full face detection every DETECT_INTERVAL ms
     if (!cachedBox || now - lastDetectTime > DETECT_INTERVAL) {
       await detectBox()
       lastDetectTime = now
@@ -127,6 +127,7 @@ async function runInference() {
 
     if (!cachedBox) return null
 
+    // Landmark net on cached box every frame
     const landmarks = await fastLandmarks(cachedBox)
     if (!landmarks) return null
 

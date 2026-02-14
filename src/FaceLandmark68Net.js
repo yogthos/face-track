@@ -1,6 +1,13 @@
 import * as tf from '@tensorflow/tfjs'
 import { LANDMARK_MEAN_RGB, LANDMARK_INPUT_SIZE } from './constants.js'
 
+// Cached mean tensor — tf.keep() prevents tf.tidy() from disposing it
+let landmarkMeanTensor = null
+function getLandmarkMean() {
+  if (!landmarkMeanTensor) landmarkMeanTensor = tf.keep(tf.tensor1d(LANDMARK_MEAN_RGB))
+  return landmarkMeanTensor
+}
+
 export function postProcessLandmarks(rawData, box, cropW, cropH) {
   const maxDim = Math.max(cropW, cropH)
   const scale = LANDMARK_INPUT_SIZE / maxDim
@@ -9,20 +16,17 @@ export function postProcessLandmarks(rawData, box, cropW, cropH) {
   const padX = cropW < cropH ? Math.abs(cropW - cropH) / 2 : 0
   const padY = cropH < cropW ? Math.abs(cropW - cropH) / 2 : 0
 
+  // Pre-compute transformation constants
+  const padXScaled = padX * scale
+  const padYScaled = padY * scale
+  const scaleX = cropW / scaledW
+  const scaleY = cropH / scaledH
+
   const landmarks = []
   for (let i = 0; i < 68; i++) {
-    let lx = rawData[i * 2] * LANDMARK_INPUT_SIZE
-    let ly = rawData[i * 2 + 1] * LANDMARK_INPUT_SIZE
-
-    lx -= padX * scale
-    ly -= padY * scale
-
-    lx /= scaledW
-    ly /= scaledH
-
     landmarks.push({
-      x: lx * cropW + box.x,
-      y: ly * cropH + box.y,
+      x: (rawData[i * 2] * LANDMARK_INPUT_SIZE - padXScaled) * scaleX + box.x,
+      y: (rawData[i * 2 + 1] * LANDMARK_INPUT_SIZE - padYScaled) * scaleY + box.y,
     })
   }
 
@@ -83,7 +87,7 @@ export class FaceLandmark68Net {
       w[`${prefix}/conv2/bias`]
     )
 
-    const in4 = tf.relu(tf.add(tf.add(out1, out2), out3))
+    const in4 = tf.relu(tf.addN([out1, out2, out3]))
     const out4 = tf.add(
       tf.separableConv2d(
         in4,
@@ -94,7 +98,7 @@ export class FaceLandmark68Net {
       w[`${prefix}/conv3/bias`]
     )
 
-    return tf.relu(tf.add(tf.add(tf.add(out1, out2), out3), out4))
+    return tf.relu(tf.addN([out1, out2, out3, out4]))
   }
 
   forward(x) {
@@ -138,8 +142,7 @@ export class FaceLandmark68Net {
       face = tf.image.resizeBilinear(face, [LANDMARK_INPUT_SIZE, LANDMARK_INPUT_SIZE])
 
       const batched = face.expandDims(0).toFloat()
-      const mean = tf.tensor1d(LANDMARK_MEAN_RGB)
-      return tf.div(tf.sub(batched, mean), 255)
+      return tf.div(tf.sub(batched, getLandmarkMean()), 255)
     })
 
     const output = this.forward(preprocessed)

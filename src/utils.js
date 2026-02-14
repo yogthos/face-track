@@ -14,16 +14,25 @@ export function iou(a, b) {
 
 export function nms(boxes, iouThreshold) {
   if (boxes.length === 0) return []
-  const sorted = [...boxes].sort((a, b) => b.score - a.score)
+
+  const n = boxes.length
+  const order = Array.from({ length: n }, (_, i) => i)
+  order.sort((a, b) => boxes[b].score - boxes[a].score)
+
+  const suppressed = new Uint8Array(n)
   const selected = []
-  while (sorted.length > 0) {
-    const current = sorted.shift()
-    selected.push(current)
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      if (iou(current.box, sorted[i].box) > iouThreshold) {
-        sorted.splice(i, 1)
+
+  for (let k = 0; k < n; k++) {
+    const i = order[k]
+    if (suppressed[i]) continue
+    selected.push(boxes[i])
+    for (let l = k + 1; l < n; l++) {
+      const j = order[l]
+      if (!suppressed[j] && iou(boxes[i].box, boxes[j].box) > iouThreshold) {
+        suppressed[j] = 1
       }
     }
   }
+
   return selected
 }

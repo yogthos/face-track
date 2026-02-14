@@ -2,12 +2,15 @@ import * as tf from '@tensorflow/tfjs'
 import { sigmoid, nms } from './utils.js'
 import { DETECTOR_ANCHORS, DETECTOR_MEAN_RGB } from './constants.js'
 
+// Cached tensors — tf.keep() prevents tf.tidy() from disposing them
+let detectorMeanTensor = null
+function getDetectorMean() {
+  if (!detectorMeanTensor) detectorMeanTensor = tf.keep(tf.tensor1d(DETECTOR_MEAN_RGB))
+  return detectorMeanTensor
+}
+
 export function leakyRelu(x) {
-  return tf.tidy(() => {
-    const alpha = tf.scalar(0.10000000149011612)
-    const min = tf.mul(x, alpha)
-    return tf.add(tf.relu(tf.sub(x, min)), min)
-  })
+  return tf.leakyRelu(x, 0.10000000149011612)
 }
 
 export class TinyFaceDetector {
@@ -53,6 +56,14 @@ export class TinyFaceDetector {
     const { inputSize = 320, scoreThreshold = 0.5 } = options
 
     const imgTensor = tf.browser.fromPixels(input)
+    try {
+      return await this.detectFromTensor(imgTensor, inputSize, scoreThreshold)
+    } finally {
+      imgTensor.dispose()
+    }
+  }
+
+  async detectFromTensor(imgTensor, inputSize = 320, scoreThreshold = 0.5) {
     const [origH, origW] = imgTensor.shape
 
     const preprocessed = tf.tidy(() => {
@@ -60,11 +71,8 @@ export class TinyFaceDetector {
       const padded = tf.pad(imgTensor, [[0, maxDim - origH], [0, maxDim - origW], [0, 0]])
       const resized = tf.image.resizeBilinear(padded, [inputSize, inputSize])
       const batched = resized.expandDims(0).toFloat()
-      const mean = tf.tensor1d(DETECTOR_MEAN_RGB)
-      return tf.div(tf.sub(batched, mean), 256)
+      return tf.div(tf.sub(batched, getDetectorMean()), 256)
     })
-
-    imgTensor.dispose()
 
     const output = this.forward(preprocessed)
     preprocessed.dispose()

@@ -49,19 +49,27 @@ export class FaceTracker {
   async detectFacesWithLandmarks(input, options) {
     if (!this.isLoaded) throw new Error('Models not loaded')
 
-    const faces = await this.faceDetector.detect(input, options)
-    if (faces.length === 0) return []
+    const { inputSize = 320, scoreThreshold = 0.5 } = options || {}
 
+    // Single fromPixels — shared between detector and landmark net
     const imgTensor = tf.browser.fromPixels(input)
-    const results = []
 
-    for (const face of faces) {
-      const landmarks = await this.landmarkNet.detectLandmarks(imgTensor, face.box)
-      results.push({ detection: face, landmarks })
+    try {
+      const faces = await this.faceDetector.detectFromTensor(
+        imgTensor, inputSize, scoreThreshold
+      )
+      if (faces.length === 0) return []
+
+      const results = []
+      for (const face of faces) {
+        const landmarks = await this.landmarkNet.detectLandmarks(imgTensor, face.box)
+        results.push({ detection: face, landmarks })
+      }
+
+      return results
+    } finally {
+      imgTensor.dispose()
     }
-
-    imgTensor.dispose()
-    return results
   }
 
   calculateFaceOrientation(landmarks) {

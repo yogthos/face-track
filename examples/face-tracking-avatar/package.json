@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@tensorflow/tfjs": "^4.22.0",
-    "face-track": "file:../../",
+    "face-track": "file:../..",
     "three": "^0.170.0"
   },
   "devDependencies": {
