@@ -1,0 +1,68 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #1a1a2e;
+  overflow: hidden;
+  font-family: system-ui, sans-serif;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+#avatar-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#video {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 200px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transform: scaleX(-1);
+}
+
+#status {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 8px;
+  transition: opacity 0.5s;
+}
+
+#status.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#debug {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  color: #0f0;
+  font-size: 13px;
+  font-family: monospace;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  line-height: 1.6;
+}
+
+#debug.hidden {
+  display: none;
+}
