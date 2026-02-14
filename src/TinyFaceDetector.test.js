@@ -106,6 +106,26 @@ describe('TinyFaceDetector', () => {
       }
     })
 
+    it('rejects boxes completely outside image boundaries', () => {
+      const numCells = 1
+      const data = makeGrid(numCells, (d, off, row, col, a) => {
+        if (a === 0) {
+          d[off + 0] = 20 // large tx pushes box far right
+          d[off + 1] = 20 // large ty pushes box far down
+          d[off + 2] = 0
+          d[off + 3] = 0
+          d[off + 4] = 10
+        } else {
+          d[off + 4] = -10
+        }
+      })
+      const boxes = detector.decodeOutput(data, numCells, 100, 100, 0.5)
+      for (const { box } of boxes) {
+        expect(box.width).toBeGreaterThan(0)
+        expect(box.height).toBeGreaterThan(0)
+      }
+    })
+
     it('filters zero-area boxes', () => {
       const numCells = 2
       const data = makeGrid(numCells, (d, off, row, col, a) => {

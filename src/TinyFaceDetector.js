@@ -110,13 +110,16 @@ export class TinyFaceDetector {
           const width = w * origW
           const height = h * origH
 
-          if (width > 0 && height > 0 && x + width > 0 && y + height > 0) {
+          if (width > 0 && height > 0 && x + width > 0 && y + height > 0
+              && x < origW && y < origH) {
+            const clampedX = Math.max(0, x)
+            const clampedY = Math.max(0, y)
             boxes.push({
               box: {
-                x: Math.max(0, x),
-                y: Math.max(0, y),
-                width: Math.min(width, origW - Math.max(0, x)),
-                height: Math.min(height, origH - Math.max(0, y)),
+                x: clampedX,
+                y: clampedY,
+                width: Math.min(width, origW - clampedX),
+                height: Math.min(height, origH - clampedY),
               },
               score,
             })
